@@ -318,7 +318,6 @@ class Bulk():
                     dbg_counter += 1
                     if dbg_counter % 100 == 0:
                         my_logger.debug("dbg_counter: {0}".format(dbg_counter))
-                        my_logger.debug("example rec: {0}".format(rec))
                     yield rec
 
     def _close_job(self, job_id):

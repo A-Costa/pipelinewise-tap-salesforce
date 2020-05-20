@@ -283,7 +283,6 @@ def do_sync(sf, catalog, state):
         LOGGER.info("Starting sync")
 
     for catalog_entry in catalog["streams"]:
-        my_logger.debug("catalog_entry: {0}".format(catalog_entry['tap_stream_id']))
         stream_version = get_stream_version(catalog_entry, state)
         stream = catalog_entry['stream']
         stream_alias = catalog_entry.get('stream_alias')
@@ -309,6 +308,8 @@ def do_sync(sf, catalog, state):
                 continue
         else:
             LOGGER.info("%s: Starting", stream_name)
+
+        my_logger.debug("catalog_entry: {0}".format(catalog_entry['tap_stream_id']))
 
         state["current_stream"] = stream_name
         singer.write_state(state)
@@ -385,6 +386,9 @@ def main_impl():
             select_fields_by_default=CONFIG.get('select_fields_by_default'),
             default_start_date=CONFIG.get('start_date'),
             api_type=CONFIG.get('api_type'))
+
+        my_logger.debug("Created Salesforce instance: {0}".format(sf))
+        my_logger.debug("{0}".format(vars(sf)))
         sf.login()
 
         if args.discover:
@@ -393,9 +397,8 @@ def main_impl():
         elif args.properties:
             catalog = args.properties
             state = build_state(args.state, catalog)
-            my_logger.debug("Will now run do_sync with state and catalog")
+            my_logger.debug("Will now run do_sync")
             my_logger.debug("state: {0}".format(state))
-            my_logger.debug("catalog: {0}".format(catalog))
             do_sync(sf, catalog, state)
     finally:
         if sf:

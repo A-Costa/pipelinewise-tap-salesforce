@@ -111,6 +111,7 @@ def sync_stream(sf, catalog_entry, state):
         return counter
 
 def sync_records(sf, catalog_entry, state, counter):
+    my_logger.debug("Executing sync_records")
     chunked_bookmark = singer_utils.strptime_with_tz(sf.get_start_date(state, catalog_entry))
     stream = catalog_entry['stream']
     schema = catalog_entry['schema']
@@ -127,7 +128,11 @@ def sync_records(sf, catalog_entry, state, counter):
 
     LOGGER.info('Syncing Salesforce data for stream %s', stream)
 
+    dbg_counter = 0
     for rec in sf.query(catalog_entry, state):
+        dbg_counter += 1
+        if dbg_counter % 100 == 0:
+            my_logger.debug("dbg_counter: {0}".format(dbg_counter))
         counter.increment()
         with Transformer(pre_hook=transform_bulk_data_hook) as transformer:
             rec = transformer.transform(rec, schema)

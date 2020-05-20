@@ -43,7 +43,4 @@ def logger_maker(name):
         logger.addHandler(terminal_logging_handler)
         logger.addHandler(file_logging_handler)
 
-        logger.info("----- Starting a new logger! -----")
-        logger.debug("logger.handlers: {0}".format(logger.handlers))
-
     return logger
