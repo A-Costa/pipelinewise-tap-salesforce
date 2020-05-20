@@ -5,6 +5,10 @@ from singer import Transformer, metadata, metrics
 from requests.exceptions import RequestException
 from tap_salesforce.salesforce.bulk import Bulk
 
+from tap_salesforce.utils import logger_maker
+my_logger = logger_maker(__name__)
+
+
 LOGGER = singer.get_logger('tap_salesforce')
 
 BLACKLISTED_FIELDS = set(['attributes'])
@@ -94,6 +98,7 @@ def sync_stream(sf, catalog_entry, state):
 
     with metrics.record_counter(stream) as counter:
         try:
+            my_logger.debug("Will execute now sync_records")
             sync_records(sf, catalog_entry, state, counter)
             singer.write_state(state)
         except RequestException as ex:
@@ -117,6 +122,8 @@ def sync_records(sf, catalog_entry, state, counter):
                                                              version=stream_version)
 
     start_time = singer_utils.now()
+
+    my_logger.debug("sync_records - start_time: {0}".format(start_time))
 
     LOGGER.info('Syncing Salesforce data for stream %s', stream)
 

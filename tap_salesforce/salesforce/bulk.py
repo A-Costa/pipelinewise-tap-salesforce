@@ -13,6 +13,10 @@ import xmltodict
 from tap_salesforce.salesforce.exceptions import (
     TapSalesforceException, TapSalesforceQuotaExceededException)
 
+from tap_salesforce.utils import logger_maker
+my_logger = logger_maker(__name__)
+
+
 BATCH_STATUS_POLLING_SLEEP = 20
 PK_CHUNKED_BATCH_STATUS_POLLING_SLEEP = 60
 ITER_CHUNK_SIZE = 1024
@@ -45,8 +49,10 @@ class Bulk():
         # Set csv max reading size to the platform's max size available.
         csv.field_size_limit(sys.maxsize)
         self.sf = sf
+        my_logger.debug("Initializing Bulk instance")
 
     def query(self, catalog_entry, state):
+        my_logger.debug("Executing query")
         self.check_bulk_quota_usage()
 
         for record in self._bulk_query(catalog_entry, state):
@@ -90,6 +96,7 @@ class Bulk():
                 "Content-Type": "application/json"}
 
     def _bulk_query(self, catalog_entry, state):
+        my_logger.debug("Executing _bulk_query")
         job_id = self._create_job(catalog_entry)
         start_date = self.sf.get_start_date(state, catalog_entry)
 
@@ -146,6 +153,7 @@ class Bulk():
         return batch_status
 
     def _create_job(self, catalog_entry, pk_chunking=False):
+        my_logger.debug("Executing _create_job")
         url = self.bulk_url.format(self.sf.instance_url, "job")
         body = {"operation": "queryAll", "object": catalog_entry['stream'], "contentType": "CSV"}
 
@@ -175,6 +183,7 @@ class Bulk():
         return job['id']
 
     def _add_batch(self, catalog_entry, job_id, start_date, order_by_clause=True):
+        my_logger.debug("Executing _add_batch")
         endpoint = "job/{}/batch".format(job_id)
         url = self.bulk_url.format(self.sf.instance_url, endpoint)
 
@@ -236,6 +245,7 @@ class Bulk():
             raise
 
     def _get_batches(self, job_id):
+        my_logger.debug("Executing _get_batches")
         endpoint = "job/{}/batch".format(job_id)
         url = self.bulk_url.format(self.sf.instance_url, endpoint)
         headers = self._get_bulk_headers()
@@ -250,6 +260,7 @@ class Bulk():
         return batches
 
     def _get_batch(self, job_id, batch_id):
+        my_logger.debug("Executing _get_batch")
         endpoint = "job/{}/batch/{}".format(job_id, batch_id)
         url = self.bulk_url.format(self.sf.instance_url, endpoint)
         headers = self._get_bulk_headers()
@@ -285,11 +296,14 @@ class Bulk():
             headers['Content-Type'] = 'text/csv'
 
             with tempfile.NamedTemporaryFile(mode="w+", encoding="utf8") as csv_file:
+                my_logger.debug("creating csv file at: {0}".format(csv_file.name))
                 resp = self.sf._make_request('GET', url, headers=headers, stream=True)
                 for chunk in resp.iter_content(chunk_size=ITER_CHUNK_SIZE, decode_unicode=True):
                     if chunk:
                         # Replace any NULL bytes in the chunk so it can be safely given to the CSV reader
                         csv_file.write(chunk.replace('\0', ''))
+
+                my_logger.debug("Finished writing csv_file")
 
                 csv_file.seek(0)
                 csv_reader = csv.reader(csv_file,
@@ -298,8 +312,13 @@ class Bulk():
 
                 column_name_list = next(csv_reader)
 
+                dbg_counter = 0
                 for line in csv_reader:
                     rec = dict(zip(column_name_list, line))
+                    dbg_counter += 1
+                    if dbg_counter % 100 == 0:
+                        my_logger.debug("dbg_counter: {0}".format(dbg_counter))
+                        my_logger.debug("example rec: {0}".format(rec))
                     yield rec
 
     def _close_job(self, job_id):

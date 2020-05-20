@@ -14,6 +14,10 @@ from tap_salesforce.salesforce.exceptions import (
     TapSalesforceException,
     TapSalesforceQuotaExceededException)
 
+from tap_salesforce.utils import logger_maker
+my_logger = logger_maker(__name__)
+
+
 LOGGER = singer.get_logger('tap_salesforce')
 
 # The minimum expiration setting for SF Refresh Tokens is 15 minutes
@@ -382,6 +386,8 @@ class Salesforce():
             return query
 
     def query(self, catalog_entry, state):
+        my_logger.debug("Running Salesforce.query")
+        my_logger.debug("api_type: {0}".format(self.api_type))
         if self.api_type == BULK_API_TYPE:
             bulk = Bulk(self)
             return bulk.query(catalog_entry, state)

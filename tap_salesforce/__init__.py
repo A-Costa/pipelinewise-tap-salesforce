@@ -11,6 +11,10 @@ from tap_salesforce.salesforce import Salesforce
 from tap_salesforce.salesforce.exceptions import (
     TapSalesforceException, TapSalesforceQuotaExceededException)
 
+from tap_salesforce.utils import logger_maker
+my_logger = logger_maker(__name__)
+
+
 LOGGER = singer.get_logger('tap_salesforce')
 
 REQUIRED_CONFIG_KEYS = ['refresh_token',
@@ -270,6 +274,7 @@ def do_discover(sf):
     json.dump(result, sys.stdout, indent=4)
 
 def do_sync(sf, catalog, state):
+    my_logger.debug("Starting do_sync")
     starting_stream = state.get("current_stream")
 
     if starting_stream:
@@ -278,6 +283,7 @@ def do_sync(sf, catalog, state):
         LOGGER.info("Starting sync")
 
     for catalog_entry in catalog["streams"]:
+        my_logger.debug("catalog_entry: {0}".format(catalog_entry['tap_stream_id']))
         stream_version = get_stream_version(catalog_entry, state)
         stream = catalog_entry['stream']
         stream_alias = catalog_entry.get('stream_alias')
@@ -315,6 +321,7 @@ def do_sync(sf, catalog, state):
             stream_alias)
 
         job_id = singer.get_bookmark(state, catalog_entry['tap_stream_id'], 'JobID')
+        my_logger.debug("job_id: {0}".format(job_id))
         if job_id:
             with metrics.record_counter(stream) as counter:
                 LOGGER.info("Found JobID from previous Bulk Query. Resuming sync for job: %s", job_id)
@@ -344,12 +351,16 @@ def do_sync(sf, catalog, state):
             bookmark_is_empty = state.get('bookmarks', {}).get(
                 catalog_entry['tap_stream_id']) is None
 
+            my_logger.debug("replication_key: {0}".format(replication_key))
+            my_logger.debug("bookmark_is_empty: {0}".format(bookmark_is_empty))
+
             if replication_key or bookmark_is_empty:
                 singer.write_message(activate_version_message)
                 state = singer.write_bookmark(state,
                                               catalog_entry['tap_stream_id'],
                                               'version',
                                               stream_version)
+            my_logger.debug("Will execute now sync_stream")
             counter = sync_stream(sf, catalog_entry, state)
             LOGGER.info("%s: Completed sync (%s rows)", stream_name, counter.value)
 
@@ -358,6 +369,7 @@ def do_sync(sf, catalog, state):
     LOGGER.info("Finished sync")
 
 def main_impl():
+    my_logger.debug("Starting main_impl()")
     args = singer_utils.parse_args(REQUIRED_CONFIG_KEYS)
     CONFIG.update(args.config)
 
@@ -376,10 +388,14 @@ def main_impl():
         sf.login()
 
         if args.discover:
+            my_logger.debug("Will now run do_discover")
             do_discover(sf)
         elif args.properties:
             catalog = args.properties
             state = build_state(args.state, catalog)
+            my_logger.debug("Will now run do_sync with state and catalog")
+            my_logger.debug("state: {0}".format(state))
+            my_logger.debug("catalog: {0}".format(catalog))
             do_sync(sf, catalog, state)
     finally:
         if sf:
